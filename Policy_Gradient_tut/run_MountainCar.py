@@ -10,7 +10,7 @@ gym: 0.8.0
 ## episode wont end util the car reach goal
 
 import gym
-from Policy_Gradient_tut.RL_brain import PolicyGradient
+from RL_brain import PolicyGradient
 import matplotlib.pyplot as plt
 
 DISPLAY_REWARD_THRESHOLD = -2000  # renders environment if total episode reward is greater then this threshold
@@ -72,7 +72,7 @@ for i_episode in range(1000):
 
             vt = RL.learn()  # train
 
-            if i_episode == 30:
+            if i_episode %30== 0:
                 plt.plot(vt)  # plot the episode vt
                 plt.xlabel('episode steps')
                 plt.ylabel('normalized state-action value')

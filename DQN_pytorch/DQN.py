@@ -20,6 +20,7 @@ N_STATES = env.observation_space.shape[0]
 ENV_A_SHAPE = 0 if isinstance(env.action_space.sample(), int) else env.action_space.sample().shape     # to confirm the shape
 
 device=torch.device('cuda:0')
+DISPLAY_REWARD_THRESHOLD=-2000
 
 class Net(nn.Module):
     def __init__(self, ):
@@ -102,6 +103,10 @@ class DQN(object):
 
 
         # q_eval w.r.t the action in experience
+        print('gather: ',np.shape(b_s))
+        print('gather: ',np.shape(b_a))
+        time.sleep(10)
+
         q_eval = self.eval_net(b_s).gather(1, b_a)  # shape (batch, 1)
 
         if self.is_ddqn:
@@ -131,11 +136,13 @@ class DQN(object):
 def train(model):
     print('training -{}-'.format(model.name))
     ep_r_hist=[]
-    for i_episode in range(400):
+    is_render=False
+    for i_episode in range(300):
         s = env.reset()
         ep_r = 0
         while True:
-            # env.render()
+            if is_render:
+                env.render()
             a = model.choose_action(s)
 
             # take action
@@ -152,12 +159,16 @@ def train(model):
             ep_r += r
             if model.memory_counter > MEMORY_CAPACITY:
                 model.learn()
-                if done:
-                    print('Ep: ', i_episode,
-                          '| Ep_r: ', round(ep_r, 2))
-
             if done:
                 ep_r_hist.append(ep_r)
+                print('Ep: ', i_episode,
+                      '| Ep_r: ', round(ep_r, 2))
+                # if 'running_reward' not in globals():
+                #     global running_reward
+                #     running_reward=ep_r
+                # else:
+                #     running_reward=running_reward*0.99+ep_r*0.01
+                # if running_reward>DISPLAY_REWARD_THRESHOLD:is_render=True
                 break
             s = s_
     return [model.loss_hist,ep_r_hist]
@@ -168,10 +179,10 @@ def train(model):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     ddqn=DQN()
-    dqn=DQN(is_ddqn=False)
+    # dqn=DQN(is_ddqn=False)
 
     loss_ddqn,r_ddqn=train(ddqn)
-    loss_dqn,r_dqn=train(dqn)
+    # loss_dqn,r_dqn=train(dqn)
 
     plt.figure(1)
 
@@ -180,16 +191,15 @@ if __name__ == '__main__':
 
     plt.sca(ax1)
     plt.plot(np.array(loss_ddqn),c='r',label='ddqn')
-    plt.plot(np.array(loss_dqn),c='b',label='dqn')
+    # plt.plot(np.array(loss_dqn),c='b',label='dqn')
     plt.legend(loc='best')
     plt.ylabel('loss')
-    plt.ylabel('reward')
     plt.xlabel('training steps')
     plt.grid()
 
     plt.sca(ax2)
     plt.plot(np.array(r_ddqn),c='r',label='ddqn')
-    plt.plot(np.array(r_dqn),c='b',label='dqn')
+    # plt.plot(np.array(r_dqn),c='b',label='dqn')
     plt.legend(loc='best')
     plt.ylabel('reward')
     plt.xlabel('training steps')

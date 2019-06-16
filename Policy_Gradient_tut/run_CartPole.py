@@ -8,7 +8,7 @@ gym: 0.8.0
 """
 
 import gym
-from Policy_Gradient_tut.RL_brain import PolicyGradient
+from RL_brain import PolicyGradient
 import matplotlib.pyplot as plt
 
 DISPLAY_REWARD_THRESHOLD = 400  # renders environment if total episode reward is greater then this threshold
@@ -51,7 +51,7 @@ for i_episode in range(3000):
                 running_reward = ep_rs_sum
             else:
                 running_reward = running_reward * 0.99 + ep_rs_sum * 0.01
-            if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
+            # if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True     # rendering
             print("episode:", i_episode, "  reward:", int(running_reward))
 
             vt = RL.learn()
