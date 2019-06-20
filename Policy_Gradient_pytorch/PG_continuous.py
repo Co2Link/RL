@@ -6,8 +6,6 @@ import gym
 import matplotlib.pyplot as plt
 import time
 
-# running_reward reach 149 at episode: 18342
-
 env = gym.make('MountainCar-v0')
 # env = gym.make('CartPole-v0')
 env.seed(1)
