@@ -6,20 +6,28 @@ import gym
 import matplotlib.pyplot as plt
 import time
 
+# env = gym.make('MountainCarContinuous-v0')
 env = gym.make('MountainCar-v0')
+
 # env = gym.make('CartPole-v0')
 env.seed(1)
 env = env.unwrapped
 
+discrete = isinstance(env.action_space,gym.spaces.Discrete)
 N_STATES = env.observation_space.shape[0]
-N_ACTIONS = env.action_space.n
+N_ACTIONS = env.action_space.n if discrete else env.action_space.shape[0]
 
 np.random.seed(1)
 torch.manual_seed(1)
 
-
-print('N_STATES: ',N_STATES)
-print('N_ACTIONS: ',N_ACTIONS)
+if discrete:
+    pass
+else:
+    print('obs_shape: ',env.observation_space.shape)
+    print('a_shape: ',env.action_space.shape)
+    print('a_low: ',env.action_space.low)
+    print('a_high: ',env.action_space.high)
+    print('a_dtype: ',env.action_space.dtype)
 
 
 class Net(nn.Module):
@@ -33,9 +41,10 @@ class Net(nn.Module):
     def forward(self, x):
         x=self.fc1(x)
         x=torch.tanh(x)
-        x=self.fc2(x)
-        act_prob=F.softmax(x)
-        return act_prob
+        act_logits=self.fc2(x)
+        # act_prob=F.softmax(x)
+
+        return act_logits
 
 class PolicyGradient(object):
     def __init__(
@@ -56,11 +65,20 @@ class PolicyGradient(object):
 
         self.loss_hist=[]
 
+        self.discrete=discrete
+
 
     def choose_action(self,x):
         x=torch.unsqueeze(torch.FloatTensor(x),0)
-        act_prob=self.net.forward(x)
-        action=np.random.choice(range(act_prob.size()[1]),p=act_prob.data.numpy().ravel())
+        act_logits=self.net.forward(x)
+        if self.discrete:
+            act_prob=F.softmax(act_logits)
+            action=np.random.choice(range(act_prob.size()[1]),p=act_prob.data.numpy().ravel())
+        else:
+            mean = act_logits
+            logstd = torch.FloatTensor(np.random.normal(0,0.3,1),requires_grad=True)
+            action = torch.normal(mean,logstd) # now
+            pass
         return action
     def store_transition(self,s,a,r):
         self.ep_obs.append(s)
@@ -73,9 +91,13 @@ class PolicyGradient(object):
         pyt_rs=torch.unsqueeze(torch.FloatTensor(discounted_ep_rs_norm),1)
 
         # calculate the loss
-        acts_prob=self.net(pyt_obs).gather(1,pyt_as) # (batch,1)
-        neg_log_prob=-torch.log(acts_prob)
-        loss=torch.mean(neg_log_prob*pyt_rs)
+        if discrete:
+            act_logits = self.net(pyt_obs)
+            act_prob = F.softmax(act_logits).gather(1, pyt_as)  # (batch,1)
+            neg_log_prob = -torch.log(act_prob)
+            loss = torch.mean(neg_log_prob * pyt_rs)
+        else:
+            pass
 
         self.loss_hist.append(loss)
 
