@@ -25,6 +25,7 @@ torch.manual_seed(1)
 print('N_STATES: ',N_STATES)
 print('N_ACTIONS: ',N_ACTIONS)
 
+# continuous时有内存溢出问题，在episode达到228出现该问题
 
 class Net(nn.Module):
     def __init__(self):
@@ -33,6 +34,8 @@ class Net(nn.Module):
         self.fc1.weight.data.normal_(0, 0.3)   # initialization
         self.fc2=nn.Linear(10,N_ACTIONS)
         self.fc2.weight.data.normal_(0, 0.3)   # initialization
+        if not discrete:
+            self.logstd = torch.nn.Parameter(torch.tensor(np.random.normal(0, 0.3, N_ACTIONS),dtype=torch.float32)) # use Parameter to add variable to the list of its parameters
 
 
     def forward(self, x):
@@ -49,8 +52,6 @@ class PolicyGradient(object):
             reward_decay=0.995,
     ):
         self.net=Net()
-        self.logstd = torch.tensor(np.random.normal(0, 0.3, N_ACTIONS), dtype=torch.float32,
-                                   requires_grad=True)  # (N_ACTIONS,)     # now 加上这个后会使离散的情况下改变结果，估计是随机数的问题
         self.lr=learning_rate
         self.gamma=reward_decay
         self.optimizer=torch.optim.Adam(self.net.parameters(),lr=self.lr)
@@ -67,14 +68,15 @@ class PolicyGradient(object):
 
     def choose_action(self, x):
         x = torch.unsqueeze(torch.FloatTensor(x), 0)
+        # time.sleep(10)
         act_logits = self.net.forward(x)
         if self.discrete:
             act_prob = F.softmax(act_logits)
             action = np.random.choice(range(act_prob.size()[1]), p=act_prob.data.numpy().ravel())
         else:
             mean = act_logits
-            logstd = self.logstd.expand_as(mean)  # ( N_ACTIONS,) -> ( Batch_size, N_ACTION)
-            action = torch.normal(mean, torch.exp(logstd)).detach().numpy()  # mean shoud have the same shape with std
+            logstd = self.net.logstd.expand_as(mean)  # ( N_ACTIONS,) -> ( Batch_size, N_ACTION)
+            action = torch.normal(mean, torch.exp(logstd)).detach().numpy().ravel()  # mean shoud have the same shape with std
         return action
     def store_transition(self,s,a,r):
         self.ep_obs.append(s)
@@ -83,28 +85,36 @@ class PolicyGradient(object):
     def learn(self):
         discounted_ep_rs_norm=self._discount_and_norm_rewards()
         pyt_obs=torch.FloatTensor(self.ep_obs)
-        pyt_as=torch.unsqueeze(torch.LongTensor(self.ep_as),1)
         pyt_rs=torch.unsqueeze(torch.FloatTensor(discounted_ep_rs_norm),1)
 
         # calculate the loss
         if discrete:
+            pyt_as = torch.unsqueeze(torch.LongTensor(self.ep_as), 1)
             act_logits = self.net(pyt_obs)
             act_prob = F.softmax(act_logits).gather(1, pyt_as)  # (batch,1)
             neg_log_prob = -torch.log(act_prob)
         else:
+            pyt_as = torch.unsqueeze(torch.FloatTensor(self.ep_as), 1)
+            start_time=time.time()
             mean = self.net(pyt_obs)
-            logstd = self.logstd
+            logstd = self.net.logstd
             std = torch.exp(logstd)
-            neg_log_prob = -torch.distributions.MultivariateNormal(loc=mean, scale_tril=torch.diag(std)).log_prob(
+
+            neg_log_prob = -torch.distributions.MultivariateNormal(loc=mean, scale_tril=torch.diag(std)).log_prob(  # 耗时数秒
                 pyt_as)
 
+
         loss = torch.mean(neg_log_prob * pyt_rs)
+
 
         self.loss_hist.append(loss)
 
         self.optimizer.zero_grad()
-        loss.backward()
+
+        loss.backward() # 耗时是forward的几倍
+
         self.optimizer.step()
+
 
         self.ep_rs,self.ep_as,self.ep_obs=[],[],[]
         self.ep_steps_list=[]
@@ -147,7 +157,6 @@ def train():
         ep_steps=0
         while True:
             if is_render:env.render()
-
             a=model.choose_action(s)
             s_,r,done,info=env.step(a)
             model.store_transition(s,a,r)
