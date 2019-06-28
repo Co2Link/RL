@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import time
 
 # running_reward reach 149 at episode: 18342
+# continuous时有内存溢出问题，在episode达到228出现该问题
+
 
 # env = gym.make('MountainCarContinuous-v0')
 env = gym.make('MountainCar-v0')
@@ -24,8 +26,6 @@ torch.manual_seed(1)
 
 print('N_STATES: ',N_STATES)
 print('N_ACTIONS: ',N_ACTIONS)
-
-# continuous时有内存溢出问题，在episode达到228出现该问题
 
 class Net(nn.Module):
     def __init__(self):
