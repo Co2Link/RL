@@ -13,6 +13,8 @@ gym 0.8.0
 import numpy as np
 import tensorflow as tf
 import gym
+
+import pandas as pd
 import time
 
 np.random.seed(2)
@@ -20,7 +22,7 @@ tf.set_random_seed(2)  # reproducible
 
 # Superparameters
 OUTPUT_GRAPH = True
-MAX_EPISODE = 200
+MAX_EPISODE = 1000
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
@@ -57,7 +59,7 @@ class Actor(object):
                 name='l1'
             )
 
-            self.acts_prob = tf.layers.dense(
+            self.acts_prob = tf.layers.dense(   # shape (None ,N_A)
                 inputs=l1,
                 units=n_actions,    # output units
                 activation=tf.nn.softmax,   # get action probabilities
@@ -128,45 +130,75 @@ class Critic(object):
                                           {self.s: s, self.v_: v_, self.r: r})
         return td_error
 
-sess = tf.Session()
+def train():
+    sess = tf.Session()
 
-actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
-critic = Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
+    actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
+    critic = Critic(sess, n_features=N_F,
+                    lr=LR_C)  # we need a good teacher, so the teacher should learn faster than the actor
 
-sess.run(tf.global_variables_initializer())
+    sess.run(tf.global_variables_initializer())
 
-if OUTPUT_GRAPH:
-    tf.summary.FileWriter("logs/", sess.graph)
+    # log
+    episode_r_list=[]
 
-for i_episode in range(MAX_EPISODE):
+    if OUTPUT_GRAPH:
+        tf.summary.FileWriter("logs/", sess.graph)
+
+    for i_episode in range(MAX_EPISODE):
+        s = env.reset()
+        t = 0
+        track_r = []
+        while True:
+            if RENDER: env.render()
+
+            a = actor.choose_action(s)
+
+            s_, r, done, info = env.step(a)
+
+            if done: r = -20
+
+            track_r.append(r)
+
+            td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
+            actor.learn(s, a, td_error)  # true_gradient = grad[logPi(s,a) * td_error]
+
+            s = s_
+            t += 1
+
+            if done or t >= MAX_EP_STEPS:
+                ep_rs_sum = sum(track_r)
+                episode_r_list.append(ep_rs_sum)
+
+                if 'running_reward' not in globals():
+                    running_reward = ep_rs_sum
+                else:
+                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
+                # if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
+                print("episode:", i_episode, "  reward:", int(running_reward))
+                break
+    pd.Series(episode_r_list).to_csv("data_log/ep_reward.csv")
+
+
+def DEBUG():
+    sess = tf.Session()
+    actor = Actor(sess,n_features=N_F,n_actions=N_A,lr=LR_A)
+    critic = Critic(sess,n_features=N_F,lr=LR_C)
+    sess.run(tf.global_variables_initializer())
+
+    # tf.summary.FileWriter("logs/",sess.graph)
+
+    # 交互
     s = env.reset()
-    t = 0
-    track_r = []
-    while True:
-        if RENDER: env.render()
+    a = actor.choose_action(s)
+    s_,r,done,info = env.step(a)
 
-        a = actor.choose_action(s)
-
-        s_, r, done, info = env.step(a)
-
-        if done: r = -20
-
-        track_r.append(r)
-
-        td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-        actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-
-        s = s_
-        t += 1
-
-        if done or t >= MAX_EP_STEPS:
-            ep_rs_sum = sum(track_r)
-
-            if 'running_reward' not in globals():
-                running_reward = ep_rs_sum
-            else:
-                running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-            if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-            print("episode:", i_episode, "  reward:", int(running_reward))
-            break
+    # 学习
+    s = s[np.newaxis,:]
+    acts_prob = sess.run(actor.acts_prob,feed_dict={actor.s:s})
+    print(acts_prob)
+    # td_error = critic.learn(s,r,s_)
+    # actor.learn(s,a,td_error)
+if __name__ == '__main__':
+    train()
 
