@@ -6,10 +6,10 @@ import gym
 import matplotlib.pyplot as plt
 import time
 
-# running_reward reach 149 at episode: 18342
+# running_reward reach 199 at episode: 2039
 
-# env = gym.make('MountainCarContinuous-v0')
-env = gym.make('MountainCar-v0')
+env = gym.make('MountainCarContinuous-v0')
+# env = gym.make('MountainCar-v0')
 # env = gym.make('CartPole-v0')
 env.seed(1)
 env = env.unwrapped
@@ -148,7 +148,7 @@ class PolicyGradient(object):
         return adv
 
 def train():
-    DISPLAY_REWARD_THRESHOLD=-150 # 在reward高于这个值时渲染动画
+    DISPLAY_REWARD_THRESHOLD=-200 # 在reward高于这个值时渲染动画
     model=PolicyGradient()
     ep_rs_hist=[]
     is_render=False
