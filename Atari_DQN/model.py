@@ -50,36 +50,24 @@ class Agent():
             return torch.tensor([[random.randrange(3)]],device=self.device,dtype=torch.long)
         else:
             with torch.no_grad():
-                print(self.policy_net(state))
                 return self.policy_net(state).max(1)[1].view(1,1)
     def remember(self,s,a,s_,r):
         self.memory.append([s,a,s_,r])
     def learn(self):
-        pass
+        if len(self.memory)<MEMORY_SIZE:
+            return
 
+        transitions = self.memory.sample(BATCH_SIZE)
+        state_batch=np.concatenate([np.expand_dims(i[0],axis=0) for i in transitions])
+
+        print(state_batch.shape)
+        print(type(state_batch))
+
+
+
+        # eval_q=self.policy_net(state_batch).gather(1,action_batch)
 
 def DEBUG():
-    env = utils.get_env()
-    img_reset = env.reset()
-    img_start, r_start, done_start, _start = env.step(1)
-
-    # make up state
-    img_reset_ = utils.img_preprocesse(img_reset)
-
-    img_reset_ = np.ascontiguousarray(img_reset_, dtype=np.float32) / 255
-    img_list = []
-
-    for i in range(4):
-        img_list.append(torch.from_numpy(img_reset_).unsqueeze(0))
-
-    img_cat = torch.cat(img_list).unsqueeze(0)
-
-
-    myagent=Agent(device='cpu')
-    action= myagent.select_action(state=img_cat)
-    print(action)
-
-def DEBUG_1():
     # auto fire after reset,skip_frame=4,stack_frame=4,max_frame operation,scale operation,clipreward operation,episode_life,
     env=make_atari(GAME)
     env=wrap_deepmind(env,episode_life=EPISODE_LIFE,clip_rewards=CLIP_REWARDS,frame_stack=FRAME_STACK,scale=SCALE)
@@ -88,7 +76,7 @@ def DEBUG_1():
     env.reset()
 
     for i in range(100):
-        img,reward,done,_=env.step(0)
+        img,reward,done,_=env.step(0) # img shape (84,84,4)
         img=np.array(img).transpose((2,0,1))[0]
         cv2.imshow('1',img)
         cv2.waitKey(0)
@@ -103,5 +91,4 @@ def DEBUG_1():
 
 
 if __name__ == '__main__':
-    # DEBUG()
-    DEBUG_1()
+    DEBUG()
