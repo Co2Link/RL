@@ -6,8 +6,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque, namedtuple
 
-import utils
-from settings import EPSILON_START,EPSILON_END,EPSILON_DECAY_STEPS,N_ACTION,GAME,GAMMA,BATCH_SIZE,EPISODE_LIFE,CLIP_REWARDS,FRAME_STACK,SCALE
+from utils import RingBuf
+from settings import EPSILON_START,EPSILON_END,EPSILON_DECAY_STEPS,N_ACTION,GAME,GAMMA,BATCH_SIZE,EPISODE_LIFE,CLIP_REWARDS,FRAME_STACK,SCALE,MEMORY_SIZE
 from atari_wrappers import make_atari,wrap_deepmind
 
 import cv2
@@ -39,6 +39,7 @@ class Agent():
         self.target_net=DQN().to(self.device)
         self.optimizer=optim.RMSprop(self.policy_net.parameters())
         self.steps_done=0
+        self.memory=RingBuf(size=MEMORY_SIZE)
 
     def select_action(self,state):
         sample=random.random()
@@ -51,6 +52,11 @@ class Agent():
             with torch.no_grad():
                 print(self.policy_net(state))
                 return self.policy_net(state).max(1)[1].view(1,1)
+    def remember(self,s,a,s_,r):
+        self.memory.append([s,a,s_,r])
+    def learn(self):
+        pass
+
 
 def DEBUG():
     env = utils.get_env()
@@ -74,16 +80,23 @@ def DEBUG():
     print(action)
 
 def DEBUG_1():
+    # auto fire after reset,skip_frame=4,stack_frame=4,max_frame operation,scale operation,clipreward operation,episode_life,
     env=make_atari(GAME)
     env=wrap_deepmind(env,episode_life=EPISODE_LIFE,clip_rewards=CLIP_REWARDS,frame_stack=FRAME_STACK,scale=SCALE)
 
-    img=env.reset()
 
-    img=np.array(img)
+    env.reset()
 
-    img=img.transpose((2,0,1))
+    for i in range(100):
+        img,reward,done,_=env.step(0)
+        img=np.array(img).transpose((2,0,1))[0]
+        cv2.imshow('1',img)
+        cv2.waitKey(0)
+        if(done):
+            break
 
-    cv2.imshow('1',img[0])
+
+
 
 
 
