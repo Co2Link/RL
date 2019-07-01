@@ -69,6 +69,7 @@ class Agent():
             return torch.tensor([[random.randrange(2)]], device=self.device, dtype=torch.long)
         else:
             with torch.no_grad():
+                print("check: ",self.policy_net(state))
                 return self.policy_net(state).max(1)[1].view(1, 1)
 
     def optimize_model(self):
