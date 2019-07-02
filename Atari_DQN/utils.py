@@ -22,9 +22,14 @@ class RingBuf:
         # too many element. Remove the first element by incrementing start.
         if self.end == self.start:
             self.start = (self.start + 1) % len(self.data)
+
+    # code style need to be improved
     def sample(self,batch_size):
         assert (self.end+1)%self.len==self.start # sample when buf is full
-        return random.sample(self.data,batch_size) # sample a from list that len=size+1
+        if self.data[self.len-1]==None: # the last item is None when it just full
+            return random.sample(self.data[self.start:self.end],batch_size)
+        else:
+            return random.sample(self.data,batch_size) # sample a from list that len=size+1
     def __getitem__(self, idx):
         return self.data[(self.start + idx) % len(self.data)]
 

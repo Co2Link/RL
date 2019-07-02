@@ -81,7 +81,7 @@ class DQN(object):
         self.memory_counter += 1
 
     def learn(self):
-        # target parameter update
+        # target parameter updatea
         if self.learn_step_counter % TARGET_REPLACE_ITER == 0:
             self.target_net.load_state_dict(self.eval_net.state_dict())
         self.learn_step_counter += 1
