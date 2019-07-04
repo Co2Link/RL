@@ -8,17 +8,19 @@ import numpy as np
 
 import torch
 
-# 若正常则静默
+env = make_atari(GAME)
+env = wrap_deepmind(env, episode_life=EPISODE_LIFE, clip_rewards=CLIP_REWARDS, frame_stack=FRAME_STACK, scale=SCALE)
+np.random.seed(1)
+env.seed(0)
 
-a = torch.tensor(1.)
-# 若正常则静默
-print(a.cuda())
-# 若正常则返回 tensor(1., device='cuda:0')
+env.reset()
+a=env.observation_space.sample()
 
-from torch.backends import cudnn
 
-# 若正常则静默
-print(cudnn.is_available())
-# 若正常则返回 True
+l1=[1,2,3]
 
-print(cudnn.is_acceptable(a.cuda()))
+l2=2
+
+l1.append(l2)
+
+print(l1)

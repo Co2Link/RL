@@ -5,10 +5,11 @@ import os
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__)) # This is your Project Root
 
 class log:
-    buf = []
-    abs_dir_path = ""
+
     # 绝对路径
     def __init__(self,abs_dir_path):
+        self.buf = []
+        self.abs_dir_path = ""
         self.mkdir(abs_dir_path)
         self.abs_dir_path = abs_dir_path
     def add(self,data):

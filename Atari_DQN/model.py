@@ -38,7 +38,7 @@ class Agent():
         self.device=device
         self.policy_net=DQN().to(self.device)
         self.target_net=DQN().to(self.device)
-        self.optimizer=optim.RMSprop(self.policy_net.parameters(),lr=LR)
+        self.optimizer=optim.Adam(self.policy_net.parameters(),lr=LR)
         self.steps_done=0
         self.memory=RingBuf(size=MEMORY_SIZE)
         self.n_action=N_ACTION
@@ -60,12 +60,16 @@ class Agent():
             with torch.no_grad():
                 return self.policy_net(state).max(1)[1].view(1,1)
     def remember(self,s,a,s_,r):
+        # transpaose and scale when store data to improve speed (about 2 time faster)
+        s=np.array(s).transpose((2,0,1))
+        s_=np.array(s_).transpose((2,0,1))
         self.memory.append(Transition(s,a,s_,r))
     def learn(self):
         if len(self.memory)<MEMORY_SIZE:
             return
         if self.learn_step_counter%TARGET_REPLACE_ITER==0:
             self.target_net.load_state_dict(self.policy_net.state_dict())
+            print('change')
         self.learn_step_counter+=1
 
         transitions = self.memory.sample(BATCH_SIZE)
@@ -100,13 +104,14 @@ class Agent():
         self.optimizer.step()
     # turn lazy_frame into tensor
     def _state2tensor(self,state):
+        # transpaose and scale when store data to improve speed (about 2 time faster)
         if isinstance(state,tuple):
-            state=np.array(state).transpose((0,3,1,2)) # (N,H,W,C) to (N,C,H,W)
-            state=state.astype(np.float32)/255.0
-            state=torch.from_numpy(state).to(self.device)
+            # state=np.array(state).transpose((0,3,1,2)) # (N,H,W,C) to (N,C,H,W)
+            # state=state.astype(np.float32)/255.0  # change
+            state=torch.from_numpy(np.array(state)).to(self.device)
         else:
             state=np.array(state).transpose((2,0,1)) # (H,W,C) to (C,H,W)
-            state=state.astype(np.float32)/255.0
+            # state=state.astype(np.float32)/255.0  # change
             state=torch.from_numpy(state).unsqueeze(0).to(self.device)
         return state
 
@@ -126,7 +131,25 @@ def DEBUG():
         if(done):
             break
 
+def DEBUG_time():
+    env = make_atari(GAME)
+    env = wrap_deepmind(env, episode_life=EPISODE_LIFE, clip_rewards=CLIP_REWARDS, frame_stack=FRAME_STACK, scale=SCALE)
+    np.random.seed(1)
+    env.seed(0)
+
+    agent = Agent('cuda')
+    env.reset()
+
+    transaction_list=[Transition(state=env.observation_space.sample(),action=0,state_=env.observation_space.sample(),reward=0) for i in range(32)]
+
+    batch=Transition(*zip(*transaction_list))
+
+    time_1=time.time()
+    print("len: {}".format(len(batch.state)))
+    for i in range(1000):
+        agent._state2tensor(batch.state)
+    print("time: {}".format(time.time()-time_1))
 
 
 if __name__ == '__main__':
-    DEBUG()
+    DEBUG_time()
